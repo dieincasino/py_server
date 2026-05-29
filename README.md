@@ -1,31 +1,33 @@
-# Python Сервер
+# Python HTTP Server + Nginx
 
 ## Описание
 
 Простое веб-приложение на Python, работающее за Nginx reverse proxy в Docker.
-
-Backend не доступен напрямую и используется только внутри Docker сети.
+Backend недоступен напрямую — только через Nginx внутри Docker сети.
 
 ---
+
 ## Архитектура
 
-```bash
-Client → Nginx (host:80)
-        → Docker network → Backend:8080
+```
+Client → Nginx (host:80) → Docker network → Backend:8080
 ```
 
 Nginx принимает HTTP запросы и проксирует их в Python HTTP сервер.
 
 ---
+
 ## Структура проекта
 
-```bash
+```
 ├── backend/
-│ ├── Dockerfile
-│ └── app.py
+│   ├── Dockerfile
+│   ├── .dockerignore
+│   └── app.py
 ├── nginx/
-│ └── nginx.conf
+│   └── nginx.conf
 ├── docker-compose.yml
+├── .env.example
 └── README.md
 ```
 
@@ -37,20 +39,37 @@ Nginx принимает HTTP запросы и проксирует их в Pyt
 - Docker Compose
 
 ---
+
 ## Запуск
+
+Скопируй `.env.example` в `.env`:
+
+```bash
+cp .env.example .env
+```
+
+Запусти проект:
 
 ```bash
 docker compose up -d --build
 ```
 
 ---
+
 ## Проверка
 
 ```bash
 curl http://localhost
 ```
 
+Ожидаемый ответ:
+
+```
+Hello from Effective Mobile!
+```
+
 ---
+
 ## Остановка
 
 ```bash
@@ -58,29 +77,40 @@ docker compose down
 ```
 
 ---
+
 ## Как работает система
 
 1. Docker Compose поднимает два сервиса:
-    - backend слушает 8080 внутри контейнера (не публикуется наружу)
-    - nginx (reverse proxy на 80)
-2. Оба сервиса находятся в одной Docker сети
-3. Nginx обращается к backend по имени сервиса `backend`
-4. Backend возвращает ответ, который проксируется клиенту
+   - **backend** — слушает порт 8080 внутри контейнера, не публикуется наружу
+   - **nginx** — reverse proxy, слушает порт 80
+2. Оба сервиса находятся в одной Docker сети `app_network`
+3. Nginx принимает запрос от клиента и проксирует его на backend по имени сервиса
+4. Backend возвращает ответ, Nginx передаёт его клиенту
 
 ---
+
 ## Компоненты
 
 ### Backend
-- Python HTTPServer
-- слушает порт 8080 внутри контейнера
-- не доступен извне
-- запускается от непривилегированного пользователя `user` (не root)
+
+- Python `http.server`
+- Слушает порт 8080 внутри контейнера
+- Недоступен снаружи (только `expose`)
+- Запускается от непривилегированного пользователя `user` (не root)
+- Healthcheck каждые 30 секунд
 
 ### Nginx
-- reverse proxy
-- принимает запросы на порт 80
-- проксирует в backend
 
-### Network
-- изолированная docker bridge сеть
-- взаимодействие сервисов через DNS Docker
+- Официальный образ `nginx:1.27-alpine`
+- Принимает запросы на порт 80
+- Проксирует на backend с передачей заголовков Host, X-Real-IP, X-Forwarded-For
+- Healthcheck каждые 30 секунд
+
+---
+
+## Используемые технологии
+
+- Python 3.12
+- Nginx 1.27
+- Docker
+- Docker Compose
